@@ -1,0 +1,14 @@
+{
+  "name": "nlm-case-study",
+  "version": "1.0.0",
+  "description": "Case study for natural language processing of hotel reviews",
+  "main": "scratch.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bluebird":"~3.5.0"
+  }
+}

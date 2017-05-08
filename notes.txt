@@ -1,0 +1,82 @@
+node / javascript?
+
+parse reviews for keywords
+	ignore words 3 or fewer letters (and, or, etc)
+
+
+stem words?
+	remove common suffixes
+
+dictionary
+	(subject) nouns (hotel, staff, bar, food, room)
+	(adjectives) (clean, dirty, etc)
+
+synonyms???
+
+
+
+break reviews into sentences by .?!
+	identify positive, negative, and intensifier phrases in sentence
+		based on semantics file
+		score sentence based on these words.
+		IE: if it contains ""
+	break into words
+		words are logically associated with other words in the sentence
+	stem words (identify core word without pre/postfix)
+		look for negative prefixes? (un, non, etc)
+
+
+	throw away short words (3 or less letters)
+		filter
+	identify nouns
+
+
+
+Hotel
+	String name
+	Review[] reviews
+
+Review
+	Hotel hotel
+	Ratings ratings
+	String title
+	String content
+	Sentence[] sentence
+
+Sentence
+	Word[] words
+	Hotel hotel
+
+
+Word
+	Match[]
+	bestMatch(){
+
+	}
+
+
+Hotel[] matches = searchService.find("bars");
+
+SearchService
+	find(String topic){
+		// get words
+		Word word = words.get(topic);
+
+		return word.bestMatch();
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
