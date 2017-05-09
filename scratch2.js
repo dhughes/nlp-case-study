@@ -70,10 +70,12 @@ let containsTerm = function (sentence, term) {
  */
 let calculateHotelReviewScoresForTerm = function (hotel, term) {
   return hotel.Reviews
-  // extract all of the sentences related to this review
+    // extract all of the sentences related to this review
       .flatMap(review => [review.Title].concat(review.Content.split(/(\.|!|\?)+?/)))
 
       // filter out any sentences that don't contain the search term
+      // todo: don't search by term where a word may be contained in another word (eg: ice may be in nice, rice, etc)
+      // todo: consider synonyms. EG: staff and personnel
       .filter(sentence => containsTerm(sentence, term))
 
       // reduce this to a collection of scores
@@ -108,6 +110,9 @@ let search = Promise.promisify(function (hotels, term, callback) {
         }
       })
 
+      // filter out hotels with 0 matches
+      .filter(hotel => hotel.negativeCount + hotel.positiveCount + hotel.neutralCount)
+
       // sort the results based on their score
       .sort((a, b) => -(a.finalScore - b.finalScore));
 
@@ -115,6 +120,11 @@ let search = Promise.promisify(function (hotels, term, callback) {
   callback(null, result);
 });
 
+/**
+ * Prompts the user for their search term and then performs the search.
+ * (todo: improve this method name)
+ * @param hotels
+ */
 let prompt = function(hotels){
   rl.question("What term do you want to search for? ", term => {
 
@@ -148,10 +158,7 @@ let prompt = function(hotels){
           });
 
           prompt(hotels);
-
-
         });
-
   });
 };
 
@@ -163,4 +170,5 @@ fs.readdirAsync(data)
     // Parse each file. Each item now represents a hotel with its reviews
     .map(JSON.parse)
 
+    // prompt the user for their search terms
     .then(hotels => prompt(hotels));
