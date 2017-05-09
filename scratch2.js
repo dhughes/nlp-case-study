@@ -5,7 +5,7 @@ const fs = Promise.promisifyAll(require("fs"));
 const data = "./data/";
 
 // a constant (for now) term to search on
-const term = "staff";
+const term = "breakfast";
 
 // read the semantics file in (synchronously for ease for now)
 const semantics = JSON.parse(fs.readFileSync("semantics.json", "utf8"));
@@ -71,7 +71,10 @@ let calculateHotelReviewScoresForTerm = function (hotel, term) {
       .reduce((acc, sentence) => acc.concat({
         sentence: sentence,
         score: calculateSentenceScore(sentence)
-      }), []);
+      }), [])
+
+      // sort this so that the most positive reviews are first;
+      .sort((a, b) => -(a.score - b.score));
 };
 
 // start by listing the files in the data directory
@@ -89,6 +92,8 @@ fs.readdirAsync(data)
           // create an object that contains hotel information and the scores  for sentences in the reviews
           return {
             scores: scores,
+            negativeCount: scores.reduce((acc, score) => score.score < 0 ? acc + 1 : acc, 0),
+            positiveCount: scores.reduce((acc, score) => score.score > 0 ? acc + 1 : acc, 0),
             finalScore: scores.reduce((acc, score) => acc + score.score, 0),
             hotel: hotel.HotelInfo
           }
@@ -96,9 +101,27 @@ fs.readdirAsync(data)
     )
     .then(data => {
       // sort the results based on their score
-      data.sort((a, b) => a.finalScore < b.finalScore);
+      data.sort((a, b) => -(a.finalScore - b.finalScore));
 
-      console.log(data);
+      // todo: consider formatting console output (color, bold, etc)
+      console.log("Your results for '" + term + "' are:\n");
+
+      data.forEach(result => {
+        console.log(result.hotel.Name ? result.hotel.Name : 'Unknown Hotel Name (Sorry!!)\n');
+        console.log("\tTotal Score:\t" + result.finalScore + " (" + result.positiveCount + " positive, " + result.negativeCount + " negative)");
+        console.log("\tLink:\t\t\t" + result.hotel.HotelURL);
+        console.log("");
+        console.log("\tFive most positive reviews:\n");
+
+        result.scores.slice(0, 5).forEach(sentence => console.log('\t ...' + sentence.sentence + '...'));
+        console.log("");
+
+        console.log("\tFive most negative reviews:\n");
+
+        result.scores.reverse().slice(0, 5).forEach(sentence => console.log('\t ...' + sentence.sentence + '...'));
+        console.log("");
+
+      });
     });
 
 
