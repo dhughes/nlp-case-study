@@ -1,11 +1,21 @@
 const Promise = require('bluebird'); // this gives us the ability to turn callbacks into promises
 const fs = Promise.promisifyAll(require("fs"));
 
+// setup console input
+const readline = require('readline');
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
+
 // the location of the json data files
 const data = "./data/";
 
-// a constant (for now) term to search on
-const term = "breakfast";
+// Blatantly stolen from https://gist.github.com/samgiles/762ee337dff48623e729
+// Allows us to flat-map arrays together
+Array.prototype.flatMap = function (lambda) {
+  return Array.prototype.concat.apply([], this.map(lambda));
+};
 
 // read the semantics file in (synchronously for ease for now)
 const semantics = JSON.parse(fs.readFileSync("semantics.json", "utf8"));
@@ -15,7 +25,6 @@ semantics.negative = semantics.negative.map(negative => ({
   "phrase": negative.phrase,
   "value": -negative.value
 }));
-
 
 /**
  * Calculate the score for a sentence based on the semantics data. The higher the
@@ -61,7 +70,7 @@ let containsTerm = function (sentence, term) {
  */
 let calculateHotelReviewScoresForTerm = function (hotel, term) {
   return hotel.Reviews
-      // extract all of the sentences related to this review
+  // extract all of the sentences related to this review
       .flatMap(review => [review.Title].concat(review.Content.split(/(\.|!|\?)+?/)))
 
       // filter out any sentences that don't contain the search term
@@ -77,6 +86,75 @@ let calculateHotelReviewScoresForTerm = function (hotel, term) {
       .sort((a, b) => -(a.score - b.score));
 };
 
+/**
+ * This maps each hotel to an object that contains the hotel data and a total
+ * score based on the search term.
+ */
+let search = Promise.promisify(function (hotels, term, callback) {
+
+  var result = hotels
+      .map(hotel => {
+        // calculate the score for this hotel on this search term
+        let scores = calculateHotelReviewScoresForTerm(hotel, term);
+
+        // create an object that contains hotel information and the scores  for sentences in the reviews
+        return {
+          scores: scores,
+          negativeCount: scores.reduce((acc, score) => score.score < 0 ? acc + 1 : acc, 0),
+          positiveCount: scores.reduce((acc, score) => score.score > 0 ? acc + 1 : acc, 0),
+          neutralCount: scores.reduce((acc, score) => score.score === 0 ? acc + 1 : acc, 0),
+          finalScore: scores.reduce((acc, score) => acc + score.score, 0),
+          hotel: hotel.HotelInfo
+        }
+      })
+
+      // sort the results based on their score
+      .sort((a, b) => -(a.finalScore - b.finalScore));
+
+  // callback with the result (ignore errors)
+  callback(null, result);
+});
+
+let prompt = function(hotels){
+  rl.question("What term do you want to search for? ", term => {
+
+    search(hotels, term)
+        .then(data => {
+          // todo: consider formatting console output (color, bold, etc)
+          console.log("Your results for '" + term + "' are:\n");
+
+          data.forEach(result => {
+            let output = `${result.hotel.Name ? result.hotel.Name : 'Unknown Hotel Name (Sorry!!)'}\n\n` +
+                `   Total Score:  ${result.finalScore} (${result.positiveCount} positive, ${result.negativeCount} negative, ${result.neutralCount} neutral)\n` +
+                `   Link:         ${result.hotel.HotelURL}\n\n` +
+                `   Most positive reviews\n\n`;
+
+            // get the most positive reviews
+            result.scores
+                .slice(0, 5)
+                .forEach(sentence => output += `\t ... ${sentence.sentence} ...\n`);
+            output += "\n";
+
+            output += "\tMost negative reviews:\n\n";
+
+            // get the most negative reviews
+            result.scores
+                .reverse()
+                .slice(0, 5)
+                .forEach(sentence => output += `\t ... ${sentence.sentence} ...\n`);
+
+
+            console.log(output + "\n");
+          });
+
+          prompt(hotels);
+
+
+        });
+
+  });
+};
+
 // start by listing the files in the data directory
 fs.readdirAsync(data)
 // Read each json file in the .data directory
@@ -85,57 +163,4 @@ fs.readdirAsync(data)
     // Parse each file. Each item now represents a hotel with its reviews
     .map(JSON.parse)
 
-    // This maps each hotel to an object that contains the hotel data and a total score based on the search term
-    .map(hotel => {
-          let scores = calculateHotelReviewScoresForTerm(hotel, term);
-
-          // create an object that contains hotel information and the scores  for sentences in the reviews
-          return {
-            scores: scores,
-            negativeCount: scores.reduce((acc, score) => score.score < 0 ? acc + 1 : acc, 0),
-            positiveCount: scores.reduce((acc, score) => score.score > 0 ? acc + 1 : acc, 0),
-            neutralCount: scores.reduce((acc, score) => score.score === 0 ? acc + 1 : acc, 0),
-            finalScore: scores.reduce((acc, score) => acc + score.score, 0),
-            hotel: hotel.HotelInfo
-          }
-        }
-    )
-    .then(data => {
-      // sort the results based on their score
-      data.sort((a, b) => -(a.finalScore - b.finalScore));
-
-      // todo: consider formatting console output (color, bold, etc)
-      console.log("Your results for '" + term + "' are:\n");
-
-
-      data.forEach(result => {
-        let output = `${result.hotel.Name ? result.hotel.Name : 'Unknown Hotel Name (Sorry!!)'}\n\n` +
-            `   Total Score:  ${result.finalScore} (${result.positiveCount} positive, ${result.negativeCount} negative, ${result.neutralCount} neutral)\n` +
-            `   Link:         ${result.hotel.HotelURL}\n\n` +
-            `   Five most positive reviews\n\n`;
-
-        // get the most positive reviews
-        result.scores
-            .slice(0, 5)
-            .forEach(sentence => output += `\t ... ${sentence.sentence} ...\n`);
-        output += "\n";
-
-        output += "\tFive most negative reviews:\n\n";
-
-        // get the most negative reviews
-        result.scores
-            .reverse()
-            .slice(0, 5)
-            .forEach(sentence => output += `\t ... ${sentence.sentence} ...\n`);
-
-
-        console.log(output + "\n");
-
-      });
-    });
-
-
-// stolen from https://gist.github.com/samgiles/762ee337dff48623e729
-Array.prototype.flatMap = function (lambda) {
-  return Array.prototype.concat.apply([], this.map(lambda));
-};
+    .then(hotels => prompt(hotels));
