@@ -18,11 +18,13 @@ semantics.negative = semantics.negative.map(negative => ({
 
 
 /**
- * Calculate the score for a sentence based on the semantics data
+ * Calculate the score for a sentence based on the semantics data. The higher the
+ * number, the better the score. Score is based off the positive and negative words
+ * found in the sentence multiplied by the intensifier's value.
  * @param sentence
  * @returns {number}
  */
-let calculateScore = function (sentence) {
+let calculateSentenceScore = function (sentence) {
   // identify the intensifier(s) in the sentence. I'm keeping this as a variable because I might want to use this later
   let intensifiers = semantics.intensifier.filter(intensifier => sentence.indexOf(intensifier.phrase) != -1);
 
@@ -41,7 +43,7 @@ let calculateScore = function (sentence) {
  * Indicates if the sentence contains a given term
  * @param sentence
  * @param term
- * @returns {function(*=): boolean}
+ * @returns {boolean}
  */
 let containsTerm = function (sentence, term) {
   // todo: strip out non-word characters (, ", &, etc)
@@ -50,47 +52,54 @@ let containsTerm = function (sentence, term) {
   return sentence != undefined && sentence.indexOf(term) != -1;
 };
 
+/**
+ * Returns an array of objects that contain a sentence and its "score" based
+ * on its correlation to the search term.
+ *
+ * @param hotel
+ * @returns {*}
+ */
+let calculateHotelReviewScoresForTerm = function (hotel, term) {
+  return hotel.Reviews
+      // extract all of the sentences related to this review
+      .flatMap(review => [review.Title].concat(review.Content.split(/(\.|!|\?)+?/)))
+
+      // filter out any sentences that don't contain the search term
+      .filter(sentence => containsTerm(sentence, term))
+
+      // reduce this to a collection of scores
+      .reduce((acc, sentence) => acc.concat({
+        sentence: sentence,
+        score: calculateSentenceScore(sentence)
+      }), []);
+};
+
 // start by listing the files in the data directory
 fs.readdirAsync(data)
-// Read each data file
+// Read each json file in the .data directory
     .map(fileName => fs.readFileAsync(data + fileName, 'utf8'))
-    // Parse each file. Each item now represents a hotel
+
+    // Parse each file. Each item now represents a hotel with its reviews
     .map(JSON.parse)
 
-    // ???
+    // This maps each hotel to an object that contains the hotel data and a total score based on the search term
     .map(hotel => {
-          let scores = hotel.Reviews
-          // parse out all of the sentences related to this review
-              .flatMap(review => [review.Title].concat(review.Content.split(/(\.|!|\?)+?/)))
+          let scores = calculateHotelReviewScoresForTerm(hotel, term);
 
-              // filter out any sentences that don't contain the search term
-              .filter(sentence => containsTerm(sentence, term))
-
-              // reduce this to a collection of scores
-              .reduce((acc, sentence) => acc.concat({
-                sentence: sentence,
-                score: calculateScore(sentence)
-              }), []);
-
-          // todo: consider whether or not to include the scores in the results
+          // create an object that contains hotel information and the scores  for sentences in the reviews
           return {
-            total: scores.reduce((acc, score) => acc + score.score, 0),
+            scores: scores,
+            finalScore: scores.reduce((acc, score) => acc + score.score, 0),
             hotel: hotel.HotelInfo
           }
         }
     )
     .then(data => {
       // sort the results based on their score
-      data.sort((a, b) => a.total < b.total);
+      data.sort((a, b) => a.finalScore < b.finalScore);
 
       console.log(data);
     });
-
-/*// print the results
- .each(hotel => {
- console.log(hotel);
- console.log("...");
- });*/
 
 
 // stolen from https://gist.github.com/samgiles/762ee337dff48623e729
