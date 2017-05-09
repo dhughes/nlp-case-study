@@ -69,7 +69,7 @@ let calculateHotelReviewScoresForTerm = function (hotel, term) {
 
       // reduce this to a collection of scores
       .reduce((acc, sentence) => acc.concat({
-        sentence: sentence,
+        sentence: sentence.trim(),
         score: calculateSentenceScore(sentence)
       }), [])
 
@@ -94,6 +94,7 @@ fs.readdirAsync(data)
             scores: scores,
             negativeCount: scores.reduce((acc, score) => score.score < 0 ? acc + 1 : acc, 0),
             positiveCount: scores.reduce((acc, score) => score.score > 0 ? acc + 1 : acc, 0),
+            neutralCount: scores.reduce((acc, score) => score.score === 0 ? acc + 1 : acc, 0),
             finalScore: scores.reduce((acc, score) => acc + score.score, 0),
             hotel: hotel.HotelInfo
           }
@@ -106,20 +107,29 @@ fs.readdirAsync(data)
       // todo: consider formatting console output (color, bold, etc)
       console.log("Your results for '" + term + "' are:\n");
 
+
       data.forEach(result => {
-        console.log(result.hotel.Name ? result.hotel.Name : 'Unknown Hotel Name (Sorry!!)\n');
-        console.log("\tTotal Score:\t" + result.finalScore + " (" + result.positiveCount + " positive, " + result.negativeCount + " negative)");
-        console.log("\tLink:\t\t\t" + result.hotel.HotelURL);
-        console.log("");
-        console.log("\tFive most positive reviews:\n");
+        let output = `${result.hotel.Name ? result.hotel.Name : 'Unknown Hotel Name (Sorry!!)'}\n\n` +
+            `   Total Score:  ${result.finalScore} (${result.positiveCount} positive, ${result.negativeCount} negative, ${result.neutralCount} neutral)\n` +
+            `   Link:         ${result.hotel.HotelURL}\n\n` +
+            `   Five most positive reviews\n\n`;
 
-        result.scores.slice(0, 5).forEach(sentence => console.log('\t ...' + sentence.sentence + '...'));
-        console.log("");
+        // get the most positive reviews
+        result.scores
+            .slice(0, 5)
+            .forEach(sentence => output += `\t ... ${sentence.sentence} ...\n`);
+        output += "\n";
 
-        console.log("\tFive most negative reviews:\n");
+        output += "\tFive most negative reviews:\n\n";
 
-        result.scores.reverse().slice(0, 5).forEach(sentence => console.log('\t ...' + sentence.sentence + '...'));
-        console.log("");
+        // get the most negative reviews
+        result.scores
+            .reverse()
+            .slice(0, 5)
+            .forEach(sentence => output += `\t ... ${sentence.sentence} ...\n`);
+
+
+        console.log(output + "\n");
 
       });
     });
