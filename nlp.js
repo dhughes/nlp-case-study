@@ -66,6 +66,7 @@ let containsTerm = function (sentence, term) {
  * on its correlation to the search term.
  *
  * @param hotel
+ * @param term
  * @returns {*}
  */
 let calculateHotelReviewScoresForTerm = function (hotel, term) {
@@ -94,7 +95,7 @@ let calculateHotelReviewScoresForTerm = function (hotel, term) {
  */
 let search = Promise.promisify(function (hotels, term, callback) {
 
-  var result = hotels
+  let result = hotels
       .map(hotel => {
         // calculate the score for this hotel on this search term
         let scores = calculateHotelReviewScoresForTerm(hotel, term);
@@ -142,7 +143,7 @@ let prompt = function(hotels){
             // get the most positive reviews
             result.scores
                 .slice(0, 5)
-                .forEach(sentence => output += `\t ... ${sentence.sentence} ...\n`);
+                .forEach(sentence => output += `\t ... (${sentence.score}) ${sentence.sentence} ...\n`);
             output += "\n";
 
             output += "\tMost negative reviews:\n\n";
@@ -151,7 +152,7 @@ let prompt = function(hotels){
             result.scores
                 .reverse()
                 .slice(0, 5)
-                .forEach(sentence => output += `\t ... ${sentence.sentence} ...\n`);
+                .forEach(sentence => output += `\t ... (${sentence.score}) ${sentence.sentence} ...\n`);
 
 
             console.log(output + "\n");
